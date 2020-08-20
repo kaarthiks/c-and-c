@@ -1,0 +1,69 @@
+1. get data from versioned kv:
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request GET \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+2. get different versions
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request GET \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1
+
+3. update secret
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @update-secret.json \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+4. delete version
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/delete/path-to-secret
+
+5. undelete version
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/undelete/path-to-secret
+
+6. destroy version
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/destroy/path-to-secret
+
+7. second secret
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request GET \
+    http://127.0.0.1:8200/v1/secret/data/mysecret
+    
+8. delete the last version
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request DELETE \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+9. list the secrets
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request LIST \
+    http://127.0.0.1:8200/v1/secret/metadata/
+
+
+    
+1. vault login as root
+vault server -dev -dev-root-token-id=root&
+
+2. vault login with plugin
+vault server -dev -dev-root-token-id=root -dev-plugin-dir=/home/seccon/c-and-c/plugins&

@@ -1,0 +1,1802 @@
+I Run dev version
+vault server -dev
+
+1. Add VAULT_ADDR to bashrc
+export VAULT_ADDR='http://127.0.0.1:8200'
+
+2. Copy the Unseal Key and Root Token
+
+cd ~/chowkidar
+mkdir working
+cd working
+
+cat > root-token.txt
+Unseal Key: cKqvjp8KS5ietuqha54jmUr2IiPOyRUJCNkfri1+yR8=
+Root Token: s.nN5tsxOg9Yap2gG55tOTN4iT
+
+
+Data is stored in-memory, encrypted. Connection to localhost is without https, since we dont have trust anchor or server certs.
+
+3. Launch firefox and go to http://127.0.0.1:8200
+
+4 Sign in with method Token, and provide the Root Token: s.nN5tsxOg9Yap2gG55tOTN4iT
+
+II Lets create a secret
+1. Click on secret
+You will see that it says there are no secrets. So lets create one
+
+In the path, say "my-seccon-secret".
+
+Ignore the secret metadata for now
+
+Version data:
+you can store key and value.
+This is a key-value store, so lets store a key and value
+
+key=myfirstkey
+value=i am learning something new!
+
+When you say add, you will see space for a new key. So you can store multiple k-v pairs in the same path. So lets store second key
+
+key=my second key
+value=hope this is useful
+
+Both key and value can be strings, with spaces, any characters, anything you want. There is no restriction here.
+
+Note on the top, it shows breadcrumbs for the path to the secret, and on the bottom it shows the keys and values. You can also get a json output, so lets click that.
+
+
+When you click that you get a json output. you can copy this and do something with it.
+
+Also notice other buttons on the top:
+a. version number
+b. history
+c. delete secret
+d. copy secret
+e. create new version
+
+Lets go through each one of them.
+click on version 1, you can see options - delete and permanently destroy the versions. I think these options are pretty straightforward to understand.
+
+Click on history. You can see the version history here. We only have one version here, so nothing extra for us to see.
+
+Now lets create a new version.
+
+Click on create new version. Since we were in json mode, the editing section is now in json mode. If you are not comfortable with json mode, click on the json toggle in the top and you will get the easier mode.
+
+lets make a change. we will add a new key-value pair first. and lets create something realistic.
+
+key="cec password"
+value="i am definitely not giving it to you!"
+
+so we saved it.
+
+now you can see the key-value pairs in json as well as in easy format.
+
+Notice on the top it says version 2. So you can play with this version. You casn see the version history. You can click on specific versions to see what that version has. This is like a git log, in effect.
+
+Now go to version 2, and click delete version. You can see the warning: the data is not removed from the storage but you can no longer read it. so lets do this.
+
+Click on version history, you can see the two versions and version 2 is marked deleted.
+
+Now lets undelete version 2. Now version 2 is undeleted and you can see it all again.
+
+So this is an interesting way to manage secrets - do it all in a web interface, using tokens to login. Note that we used a root token, so we have complete access to all the data. Later on we will create new tokens and setup policies to control who can access what.
+
+
+Any questions?
+
+Now we have all this data, but web access is boring. How do we access this data?
+We have two options - cli and REST API.
+
+So lets use both and try. We will start with cli.
+
+Lets run this command:
+
+$ vault kv get secret/path-to-secret
+
+We get the following output
+
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T07:24:14.069431698Z
+deletion_time    n/a
+destroyed        false
+version          2
+
+======== Data ========
+Key              Value
+---              -----
+cec password     i am definitely not giving it to you!
+my second key    hope this is useful
+myfirstkey       i am learning something new!
+
+Notice the metadata as well as the data.
+
+We can get a specific key using the following
+
+$ vault kv get -field="cec password" secret/path-to-secret
+i am definitely not giving it to you!
+
+
+You can get via json format as well
+
+seccon@ubuntu:~/chowkidar/working$ vault kv get -format=json -field="cec password" secret/path-to-secret
+"i am definitely not giving it to you!"
+seccon@ubuntu:~/chowkidar/working$ vault kv get -format=json secret/path-to-secret
+{
+  "request_id": "5ef48e9c-fed7-5a28-3f27-e3bda1361888",
+  "lease_id": "",
+  "lease_duration": 0,
+  "renewable": false,
+  "data": {
+    "data": {
+      "cec password": "i am definitely not giving it to you!",
+      "my second key": "hope this is useful",
+      "myfirstkey": "i am learning something new!"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T07:24:14.069431698Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 2
+    }
+  },
+  "warnings": null
+}
+
+Now, lets set a secret from the cli. So we set in K=V format:
+
+$ vault kv put secret/path-to-secret "secret from cli"="yoo hoo! climan json_pp"
+Key              Value
+---              -----
+created_time     2020-08-09T08:45:39.012672399Z
+deletion_time    n/a
+destroyed        false
+version          3
+
+Now look at the data:
+
+seccon@ubuntu:~/chowkidar/working$ vault kv get secret/path-to-secret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T08:45:39.012672399Z
+deletion_time    n/a
+destroyed        false
+version          3
+
+========= Data =========
+Key                Value
+---                -----
+secret from cli    yoo hoo! climan json_pp
+
+"put" in the cli will *REPLACE* the existing secret, so we need to be careful. What we can do now is rollback to a previous state, using the rollback command. What we will do is notice the version number here is 3. So we want to rollback to version 2. So lets do that.
+
+seccon@ubuntu:~/chowkidar/working$ vault kv rollback -version=2 secret/path-to-secret
+Key              Value
+---              -----
+created_time     2020-08-09T08:48:31.891886996Z
+deletion_time    n/a
+destroyed        false
+version          4
+seccon@ubuntu:~/chowkidar/working$ vault kv get secret/path-to-secret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T08:48:31.891886996Z
+deletion_time    n/a
+destroyed        false
+version          4
+
+======== Data ========
+Key              Value
+---              -----
+cec password     i am definitely not giving it to you!
+my second key    hope this is useful
+myfirstkey       i am learning something new!
+
+Now lets check all these operations on the web ui.Go back to firefox. Click on path-to-secret. you can see we are at version 4. Now click on history.
+
+click on version 3 you can see what we did in version 3
+
+So in the cli how do we append new data? We have two options, we can use json formatted data or we have to copy/paste the original and add to it. Json is easier, so lets do that.
+
+vault kv put -format=json secret/path-to-secret @new-value.json
+{
+  "request_id": "17def13f-a272-16f8-6e58-151908ae8d21",
+  "lease_id": "",
+  "lease_duration": 0,
+  "renewable": false,
+  "data": {
+    "created_time": "2020-08-09T10:13:57.790086168Z",
+    "deletion_time": "",
+    "destroyed": false,
+    "version": 9
+  },
+  "warnings": null
+}
+seccon@ubuntu:~/chowkidar/working$ vault kv get -format=json secret/path-to-secret |jq
+{
+  "request_id": "13975337-3618-5a3e-a238-6ef06671df01",
+  "lease_id": "",
+  "lease_duration": 0,
+  "renewable": false,
+  "data": {
+    "data": {
+      "data": {
+        "cec password": "i am definitely not giving it to you!",
+        "my second key": "hope this is useful",
+        "myfirstkey": "i am learning something new!",
+        "secret from cli": "yay!"
+      }
+    },
+    "metadata": {
+      "created_time": "2020-08-09T10:13:57.790086168Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 9
+    }
+  },
+  "warnings": null
+}
+
+
+vault kv get secret/path-to-secret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T10:13:57.790086168Z
+deletion_time    n/a
+destroyed        false
+version          9
+
+==== Data ====
+Key     Value
+---     -----
+data    map[cec password:i am definitely not giving it to you! my second key:hope this is useful myfirstkey:i am learning something new! secret from cli:yay!]
+
+
+REST API
+
+Lets set an environment variable for the token
+
+seccon@ubuntu:~/chowkidar/working$ export VAULT_TOKEN=s.nN5tsxOg9Yap2gG55tOTN4iT
+seccon@ubuntu:~/chowkidar/working$ env | grep VAULT
+VAULT_TOKEN=s.nN5tsxOg9Yap2gG55tOTN4iT
+VAULT_ADDR=http://127.0.0.1:8200
+
+Now issue a REST GET for this secret:
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request GET \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+
+{
+  "request_id": "d7bc130f-5feb-d2b9-f4d7-42c0e1430c26",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "cec password": "i am definitely not giving it to you!",
+      "my second key": "hope this is useful",
+      "myfirstkey": "i am learning something new!"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T07:24:14.069431698Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 2
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+Issue a GET for a different version:
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request GET \
+    http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1
+
+{
+  "request_id": "eedbd284-7d25-3266-3577-117aeb9e7055",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "my second key": "hope this is useful",
+      "myfirstkey": "i am learning something new!"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+Lets update the secret using REST
+
+curl \
+     --header "X-Vault-Token: $VAULT_TOKEN"
+     --request POST
+     --data @update-secret.json \
+     http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+{"request_id":"2a570228-98e6-37c5-05f7-2facbf2a6e64","lease_id":"","renewable":false,"lease_duration":0,"data":{"created_time":"2020-08-09T09:30:04.817638004Z","deletion_time":"","destroyed":false,"version":7},"wrap_info":null,"warnings":null,"auth":null}
+
+
+curl \
+     --header "X-Vault-Token: $VAULT_TOKEN" \
+     --request GET \
+     http://127.0.0.1:8200/v1/secret/data/path-to-secret | jq
+{
+  "request_id": "b56fbb62-ebfb-82d5-197e-3ca0b0ca24d7",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "foo": "bar",
+      "zip": "zap"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T09:30:04.817638004Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 7
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+We can use the REST API to delete specific versions. So lets first get the version #1
+
+curl \
+     --header "X-Vault-Token: $VAULT_TOKEN" \
+     --request GET \
+     http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1 |jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   360  100   360    0     0  45000      0 --:--:-- --:--:-- --:--:-- 72000
+{
+  "request_id": "b3e26d88-63f7-60c4-4606-8300f31f1ee7",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "my second key": "hope this is useful",
+      "myfirstkey": "i am learning something new!"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+We will now delete this version:
+
+Lets run this command
+
+curl \
+    --header "X-Vault-Token: ..." \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/delete/path-to-secret
+
+{
+  "errors": [
+    "permission denied"
+  ]
+}
+
+Hey, look at that ! It says "permission denied". Why is that?
+If you look at the curl request above, it does not have a specific token, thats why. So we will modify the request now to take the right VAULT_TOKEN
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/delete/path-to-secret
+
+And that worked. Now lets get version 1.
+
+
+
+curl \
+     --header "X-Vault-Token: $VAULT_TOKEN" \
+     --request GET \
+     http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1 |jq
+
+{
+  "request_id": "caf28ccf-9987-6cc6-2fb5-e784260bef88",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": null,
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "2020-08-09T10:21:57.522865143Z",
+      "destroyed": false,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+Look at that, it says no data in version 1. It is not destroyed, but data is null.
+
+Now lets resurrect version 1 again.
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/undelete/path-to-secret
+
+Lets look at version 1 again.
+
+curl \
+      --header "X-Vault-Token: $VAULT_TOKEN" \
+      --request GET \
+      http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1 |jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   360  100   360    0     0  27692      0 --:--:-- --:--:-- --:--:-- 45000
+{
+  "request_id": "25fab3d9-0830-b3a0-0844-4ea4e79c088a",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "my second key": "hope this is useful",
+      "myfirstkey": "i am learning something new!"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+
+And we are back. We can do this only because we deleted the version but didnt destroy it. This time we will destroy version 1 completely.
+
+curl \
+    --header "X-Vault-Token: $VAULT_TOKEN" \
+    --request POST \
+    --data @delete-versions.json \
+    http://127.0.0.1:8200/v1/secret/destroy/path-to-secret
+
+Now lets look at the data in version 1
+
+
+curl \
+       --header "X-Vault-Token: $VAULT_TOKEN" \
+       --request GET \
+       http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1 |jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   279  100   279    0     0  17437      0 --:--:-- --:--:-- --:--:-- 27900
+{
+  "request_id": "8918986d-b76c-c187-9c21-8b5a7b093a56",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": null,
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "",
+      "destroyed": true,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+So once again, null data but destroyed flag is true!
+
+Lets try to resurrect this data now.
+
+curl \
+>     --header "X-Vault-Token: $VAULT_TOKEN" \
+>     --request POST \
+>     --data @delete-versions.json \
+>     http://127.0.0.1:8200/v1/secret/undelete/path-to-secret
+
+Can we see the version now?
+
+curl \
+>        --header "X-Vault-Token: $VAULT_TOKEN" \
+>        --request GET \
+>        http://127.0.0.1:8200/v1/secret/data/path-to-secret?version=1 |jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   279  100   279    0     0  13950      0 --:--:-- --:--:-- --:--:-- 14684
+{
+  "request_id": "344ca469-4c26-d429-06a4-9ce381d1b015",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": null,
+    "metadata": {
+      "created_time": "2020-08-09T07:18:14.739875372Z",
+      "deletion_time": "",
+      "destroyed": true,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+Nope, it is still destroyed.
+
+So we have completely destroyed the version 1. Look into the web UI and see what it says there.
+
+Look at the version history. You can see version 1 is destroyed. If you click on version 1 you will not see the data at all. You can look at the other versions and see the data in those versions.
+
+Lets take version 2 and destroy it via cli:
+
+You can get help for the cli using -help option, so here:
+vault kv -help
+will give you the commands you can run on the kv secrets type. You will see destroy in there, so lets do a help on that:
+
+vault kv destroy -help
+
+You can see that you can specify version number there, so lets use that.
+
+vault kv destroy -versions=2 secret/path-to-secret
+Success! Data written to: secret/destroy/path-to-secret
+
+Back to the UI. And version 2 is destroyed as well.
+
+Now lets create another secret but lets do it now via the cli
+
+
+seccon@ubuntu:~/chowkidar/working$ vault kv put secret/mysecret "router password"="cisco123"
+Key              Value
+---              -----
+created_time     2020-08-09T10:40:00.765903179Z
+deletion_time    n/a
+destroyed        false
+version          1
+seccon@ubuntu:~/chowkidar/working$ vault kv get secret/mysecret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T10:40:00.765903179Z
+deletion_time    n/a
+destroyed        false
+version          1
+
+========= Data =========
+Key                Value
+---                -----
+router password    cisco123
+
+Now lets see what secrets I have in all:
+
+Lets look at this secret in the UI. You can also get the secret via REST:
+
+curl \
+>     --header "X-Vault-Token: $VAULT_TOKEN" \
+>     --request GET \
+>     http://127.0.0.1:8200/v1/secret/data/mysecret | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   307  100   307    0     0  21928      0 --:--:-- --:--:-- --:--:-- 38375
+{
+  "request_id": "ec4bdc97-da4c-70ce-6b79-31a023e19e5d",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": {
+      "router password": "cisco123"
+    },
+    "metadata": {
+      "created_time": "2020-08-09T10:40:00.765903179Z",
+      "deletion_time": "",
+      "destroyed": false,
+      "version": 1
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+Now you can list the secrets in the kv store:
+
+
+seccon@ubuntu:~/chowkidar/working$ vault kv list secret/
+Keys
+----
+mysecret
+path-to-secret
+
+So we have two paths where secrets are stored. You can look up each path and get the list of keys in each path. Remember that each secret can have any number of KV pairs, and you can get the specific one you want by using the -field option get. You can also get specific versions.
+
+For instance:
+
+seccon@ubuntu:~/chowkidar/working$ vault kv get -version 1 secret/mysecret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T10:40:00.765903179Z
+deletion_time    n/a
+destroyed        false
+version          1
+
+========= Data =========
+Key                Value
+---                -----
+router password    cisco123
+seccon@ubuntu:~/chowkidar/working$ vault kv get -version 1 secret/path-to-secret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T07:18:14.739875372Z
+deletion_time    n/a
+destroyed        true
+version          1
+
+
+---- Delete
+
+Ok, I think we have done enough damage to this object. Lets just kill it completely. Which way? CLI or GUI or REST? Here are the different ways to do it, you can try whichever one you want:
+
+
+In the web interface, in the page for the secret, you can click on "delete secret" and then select delete.
+
+In the cli, you can type:
+
+vault kv delete secret/path-to-secret
+seccon@ubuntu:~/chowkidar/working$ vault kv get secret/path-to-secret
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-09T10:13:57.790086168Z
+deletion_time    2020-08-11T08:21:59.411196076Z
+destroyed        false
+version          9
+
+
+Using REST: Note the request is DELETE, not POST, and the path is different - secret/*data*/path-to-secret. To delete a version, you do a POST on secret/*delete*/path-to-secret and you specify versions as data in json format.
+
+curl \
+>     --header "X-Vault-Token: $VAULT_TOKEN" \
+>     --request DELETE \
+>     http://127.0.0.1:8200/v1/secret/data/path-to-secret
+
+Get the data back and we get nothing:
+
+curl \
+>     --header "X-Vault-Token: $VAULT_TOKEN" \
+>     --request GET \
+>     http://127.0.0.1:8200/v1/secret/data/path-to-secret | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   310  100   310    0     0  25833      0 --:--:-- --:--:-- --:--:-- 25833
+{
+  "request_id": "d54b2afb-c8d5-d1bd-ea82-9fb15a4b7d35",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "data": null,
+    "metadata": {
+      "created_time": "2020-08-09T10:13:57.790086168Z",
+      "deletion_time": "2020-08-11T08:21:59.411196076Z",
+      "destroyed": false,
+      "version": 9
+    }
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+
+
+Lets list all the secrets: Note the path is secret/*metadata*/. And note that the "/" at the end is important - you need to specify a folder where the secrets are.
+
+curl \
+     --header "X-Vault-Token: $VAULT_TOKEN" \
+     --request LIST \
+     http://127.0.0.1:8200/v1/secret/metadata/ | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   196  100   196    0     0  32666      0 --:--:-- --:--:-- --:--:-- 49000
+{
+  "request_id": "889d3f02-4cb4-df6b-89b8-16382844e89e",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "keys": [
+      "mysecret",
+      "path-to-secret"
+    ]
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+
+What if we didnt specify a folder? In this case lets try it on mysecret:
+
+
+curl \
+>      --header "X-Vault-Token: $VAULT_TOKEN" \
+>      --request LIST \
+>      http://127.0.0.1:8200/v1/secret/metadata/mysecret | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    14  100    14    0     0   1000      0 --:--:-- --:--:-- --:--:--  1076
+{
+  "errors": []
+}
+
+vault kv list secret/
+Keys
+----
+mysecret
+path-to-secret
+
+vault kv list secret/path-to-secret
+No value found at secret/metadata/path-to-secret
+
+vault kv list secret/mysecret
+No value found at secret/metadata/mysecret
+
+
+mysecret is not a folder in the path. It is just a key. We can create secrets that span folders.
+
+seccon@ubuntu:~/chowkidar/working$ vault kv put secret/path/radius key=value1
+Key              Value
+---              -----
+created_time     2020-08-11T08:34:57.667265744Z
+deletion_time    n/a
+destroyed        false
+version          1
+seccon@ubuntu:~/chowkidar/working$ vault kv put secret/path/tacacs key=value2
+Key              Value
+---              -----
+created_time     2020-08-11T08:35:04.861215579Z
+deletion_time    n/a
+destroyed        false
+version          1
+seccon@ubuntu:~/chowkidar/working$ vault kv list secret/
+Keys
+----
+mysecret
+path-to-secret
+path/
+seccon@ubuntu:~/chowkidar/working$ vault kv list secret/path
+Keys
+----
+radius
+tacacs
+
+----
+
+Lets now talk about plugins. Until now we worked with the kv plugin, which is the key-value plugin. We can load lots of different types of plugins and they can be loaded into different paths in the folder structure. lets see the list of plugins.
+
+vault plugin list
+Plugins
+-------
+ad
+alicloud
+app-id
+approle
+aws
+azure
+cassandra
+cassandra-database-plugin
+centrify
+cert
+cf
+consul
+elasticsearch-database-plugin
+gcp
+gcpkms
+github
+hana-database-plugin
+influxdb-database-plugin
+jwt
+kerberos
+kubernetes
+kv
+ldap
+mongodb
+mongodb-database-plugin
+mongodbatlas
+mongodbatlas-database-plugin
+mssql
+mssql-database-plugin
+mysql
+mysql-aurora-database-plugin
+mysql-database-plugin
+mysql-legacy-database-plugin
+mysql-rds-database-plugin
+nomad
+oci
+oidc
+okta
+openldap
+pcf
+pki
+postgresql
+postgresql-database-plugin
+rabbitmq
+radius
+redshift-database-plugin
+ssh
+totp
+transit
+userpass
+
+There are 3 types of plugins - database, auth and secret. You can figure out which plugins do what:
+
+vault plugin auth
+vault plugin database
+vault plugin secret
+
+we can enable a secrets plugin this way:
+
+vault secrets enable -path=mykv kv
+2020-08-11T01:49:30.274-0700 [INFO]  core: successful mount: namespace= path=mykv/ type=kv
+Success! Enabled the kv secrets engine at: mykv/
+
+Now we can do the same kv secrets using this new path:
+
+seccon@ubuntu:~/chowkidar/working$ vault kv put mykv/new/path key1=value1
+Success! Data written to: mykv/new/path
+seccon@ubuntu:~/chowkidar/working$ vault kv get mykv/new/path
+==== Data ====
+Key     Value
+---     -----
+key1    value1
+seccon@ubuntu:~/chowkidar/working$ vault kv list mykv/new/
+Keys
+----
+path
+seccon@ubuntu:~/chowkidar/working$ vault kv list mykv/new/path
+No value found at mykv/new/path/
+seccon@ubuntu:~/chowkidar/working$ vault kv list mykv/
+Keys
+----
+new/
+seccon@ubuntu:~/chowkidar/working$ vault kv list mykv/new
+Keys
+----
+path
+
+
+We have been using "kv get/put". But a more generic way is using vault read/write.
+
+vault read mykv/new/path
+Key                 Value
+---                 -----
+refresh_interval    768h
+key1                value1
+
+vault write mykv/new/path key2=value2 key1=value1
+Success! Data written to: mykv/new/path
+
+vault read mykv/new/path 
+Key                 Value
+---                 -----
+refresh_interval    768h
+key1                value1
+key2                value2
+
+
+So we have done a lot with secrets. There are all sorts of secrets plugins and many of them require outside accounts like aws, azure, or a radius server. So based on what your purpose is, you can use one of these services. You can see whats really good about vault. You have a single place to map all secrets.
+
+Now lets look at authentication.
+
+Token Authentication
+When we started vault we got root token, that is all powerful. We can create additional tokens that allow specific access.
+
+VERY IMPORTANT: SAVE THE ROOT TOKEN!! I have it saved in VAULT_TOKEN env variable.
+
+echo $VAULT_TOKEN
+s.nN5tsxOg9Yap2gG55tOTN4iT
+
+So lets create a new token.
+vault token create
+Key                  Value
+---                  -----
+token                s.v0sAa1fnMugw59hxjsQ7egQl
+token_accessor       Rm6EsBtXLm9qEn9ZdihN57Kd
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+Notice the policies it has, which says root. This token inherits from root token, so it has all the powers of the root token. Lets login with this token.
+
+vault login s.v0sAa1fnMugw59hxjsQ7egQl
+WARNING! The VAULT_TOKEN environment variable is set! This takes precedence
+over the value set by this command. To use the value set by this command,
+unset the VAULT_TOKEN environment variable or set it to the token displayed
+below.
+
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.v0sAa1fnMugw59hxjsQ7egQl
+token_accessor       Rm6EsBtXLm9qEn9ZdihN57Kd
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+Notice the warning. Lets move the root token to another env variable and unset VAULT_TOKEN.
+seccon@ubuntu:~/chowkidar/working$ export ROOT_TOKEN=$VAULT_TOKEN
+seccon@ubuntu:~/chowkidar/working$ echo $ROOT_TOKEN
+s.nN5tsxOg9Yap2gG55tOTN4iT
+seccon@ubuntu:~/chowkidar/working$ unset VAULT_TOKEN
+seccon@ubuntu:~/chowkidar/working$ echo $VAULT_TOKEN
+
+
+Since this token has the same capabilities as root, it can modify the secrets we created before.
+
+vault token capabilities secrets/mysecret
+root
+
+seccon@ubuntu:~/chowkidar/working$ vault list mykv/new/
+Keys
+----
+path
+seccon@ubuntu:~/chowkidar/working$ vault read mykv/new/path
+Key                 Value
+---                 -----
+refresh_interval    768h
+key1                value1
+key2                value2
+
+seccon@ubuntu:~/chowkidar/working$ vault write mykv/new/path key3=value3
+Success! Data written to: mykv/new/path
+seccon@ubuntu:~/chowkidar/working$ vault read mykv/new/path
+Key                 Value
+---                 -----
+refresh_interval    768h
+key3                value3
+
+We can lookup info about a token:
+
+seccon@ubuntu:~/chowkidar/working$ vault token lookup s.v0sAa1fnMugw59hxjsQ7egQl
+Key                 Value
+---                 -----
+accessor            Rm6EsBtXLm9qEn9ZdihN57Kd
+creation_time       1597161944
+creation_ttl        0s
+display_name        token
+entity_id           n/a
+expire_time         <nil>
+explicit_max_ttl    0s
+id                  s.v0sAa1fnMugw59hxjsQ7egQl
+issue_time          2020-08-11T09:05:44.024195226-07:00
+meta                <nil>
+num_uses            0
+orphan              false
+path                auth/token/create
+policies            [root]
+renewable           false
+ttl                 0s
+type                service
+
+Notice the capabilities of this token - it shows the numbber of times you can use thet token, when it expires, etc. We havent set any of these, but we can. So if we set these policies appropriately for a token, we now have a fully featured way to provide access to others in a time limited or use limited manner. We can now pass this token to anyone else and they can use it to login and do some operations. Once they are done with the operations we can revoke the tokens.
+
+vault token revoke s.v0sAa1fnMugw59hxjsQ7egQl
+2020-08-11T09:15:08.110-0700 [INFO]  expiration: revoked lease: lease_id=auth/token/create/h2278564b8e0c96c11a81aeb92a7004e02e554fb8d98003fbc61ab812509e7eaf
+Success! Revoked token (if it existed)
+
+Now if we run any operations it should fail.
+
+ vault read mykv/new/path
+Error reading mykv/new/path: Error making API request.
+
+URL: GET http://127.0.0.1:8200/v1/mykv/new/path
+Code: 403. Errors:
+
+* permission denied
+
+So now we need to relogin, and as root since that is the only token we have.
+
+vault login $ROOT_TOKEN
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.nN5tsxOg9Yap2gG55tOTN4iT
+token_accessor       AVJTkAbG7HSgUw3ku1LPshv2
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+
+* Restarted vault
+
+             Api Address: http://127.0.0.1:8200
+                     Cgo: disabled
+         Cluster Address: https://127.0.0.1:8201
+              Go Version: go1.14.4
+              Listener 1: tcp (addr: "127.0.0.1:8200", cluster address: "127.0.0.1:8201", max_request_duration: "1m30s", max_request_size: "33554432", tls: "disabled")
+               Log Level: info
+                   Mlock: supported: true, enabled: false
+           Recovery Mode: false
+                 Storage: inmem
+                 Version: Vault v1.5.0
+
+WARNING! dev mode is enabled! In this mode, Vault runs entirely in-memory
+and starts unsealed with a single unseal key. The root token is already
+authenticated to the CLI, so you can immediately begin using Vault.
+
+You may need to set the following environment variable:
+
+    $ export VAULT_ADDR='http://127.0.0.1:8200'
+
+The unseal key and root token are displayed below in case you want to
+seal/unseal the Vault or re-authenticate.
+
+Unseal Key: poIcw0AopzyzX8EpWGlxlP5Nso6EcGjtZwpUaqrdeTM=
+Root Token: s.ZSLtDt14LaaJtSfZlkloUEdX
+
+
+Lets look at policies now. This is about authorization - who can do what. Written in a language called HCL.
+
+In the UI, you can go to th ePolicies tab and look up the default policy. It lists a bunch of stuff there.
+
+
+When you do vault token lookup:
+Key                 Value
+---                 -----
+accessor            M8onuZldG32awXagS00naAJa
+creation_time       1597476346
+creation_ttl        0s
+display_name        root
+entity_id           n/a
+expire_time         <nil>
+explicit_max_ttl    0s
+id                  s.ZSLtDt14LaaJtSfZlkloUEdX
+meta                <nil>
+num_uses            0
+orphan              true
+path                auth/token/root
+policies            [root]
+ttl                 0s
+type                service
+
+
+Run "vault policy list" and you will see:
+default
+root
+
+Look at the policy (1) in policy.txt.
+
+First we upload the policy to vault:
+
+vault policy write mypolicy -<<EOF
+> path "mysecret/data/*" {
+>      capabilities = ["create", "update", "delete", "read"]
+> }
+> 
+> path "mysecret/data/locked" {
+>      capabilities = ["read"]
+> }
+> EOF
+Success! Uploaded policy: mypolicy
+
+Check that the policy says what we want it to say:
+
+vault policy read mypolicy
+path "mysecret/data/*" {
+     capabilities = ["create", "update", "delete", "read"]
+}
+
+path "mysecret/data/locked" {
+     capabilities = ["read"]
+}
+
+Now remember we are still running as root. Lets create some secrets in the paths specified in the hcl file. Dont use "data".
+
+vault login $ROOT_TOKEN
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.ZSLtDt14LaaJtSfZlkloUEdX
+token_accessor       M8onuZldG32awXagS00naAJa
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+seccon@ubuntu:~/chowkidar/working$ vault kv put mysecret/passwords sshkey=1234
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:26.985361222Z
+deletion_time    n/a
+destroyed        false
+version          1
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/passwords
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:26.985361222Z
+deletion_time    n/a
+destroyed        false
+version          1
+
+===== Data =====
+Key       Value
+---       -----
+sshkey    1234
+seccon@ubuntu:~/chowkidar/working$ vault kv put mysecret/locked cecpw=1111
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:50.662360186Z
+deletion_time    n/a
+destroyed        false
+version          2
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/locked
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:50.662360186Z
+deletion_time    n/a
+destroyed        false
+version          2
+
+==== Data ====
+Key      Value
+---      -----
+cecpw    1111
+
+Now create the new user.
+
+
+vault token create -policy=mypolicy
+Key                  Value
+---                  -----
+token                s.xEtUJjtMJQ2IpummmFiXzBb9
+token_accessor       Zcp0XSHxt3fb7ZUZ1rvJTL4Q
+token_duration       768h
+token_renewable      true
+token_policies       ["default" "mypolicy"]
+identity_policies    []
+policies             ["default" "mypolicy"]
+seccon@ubuntu:~/chowkidar/working$ export NEW_TOKEN=s.xEtUJjtMJQ2IpummmFiXzBb9
+seccon@ubuntu:~/chowkidar/working$ env | grep TOKEN
+NEW_TOKEN=s.xEtUJjtMJQ2IpummmFiXzBb9
+ROOT_TOKEN=s.ZSLtDt14LaaJtSfZlkloUEdX
+
+Login as the new user
+
+vault login $NEW_TOKEN
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.xEtUJjtMJQ2IpummmFiXzBb9
+token_accessor       Zcp0XSHxt3fb7ZUZ1rvJTL4Q
+token_duration       767h41m14s
+token_renewable      true
+token_policies       ["default" "mypolicy"]
+identity_policies    []
+policies             ["default" "mypolicy"]
+seccon@ubuntu:~/chowkidar/working$ 
+
+Lets check our capabilities:
+
+vault token capabilities mysecret/data/locked
+read
+seccon@ubuntu:~/chowkidar/working$ vault token capabilities mysecret/data/
+create, delete, read, update
+seccon@ubuntu:~/chowkidar/working$
+
+Read the locked secret
+
+vault kv get mysecret/locked
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:50.662360186Z
+deletion_time    n/a
+destroyed        false
+version          2
+
+==== Data ====
+Key      Value
+---      -----
+cecpw    1111
+
+Try to update the locked secret
+
+seccon@ubuntu:~/chowkidar/working$ vault kv put mysecret/locked cec11=1234
+Error writing data to mysecret/data/locked: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/mysecret/data/locked
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+
+Unable to delete either:
+
+vault kv delete mysecret/locked
+Error deleting mysecret/locked: Error making API request.
+
+URL: DELETE http://127.0.0.1:8200/v1/mysecret/data/locked
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+
+Lets look at the other secret:
+
+vault kv get mysecret/passwords
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:20:26.985361222Z
+deletion_time    n/a
+destroyed        false
+version          1
+
+===== Data =====
+Key       Value
+---       -----
+sshkey    1234
+
+Lets update this secret:
+
+vault kv put mysecret/passwords sshkey=09876
+Key              Value
+---              -----
+created_time     2020-08-15T17:26:50.579038568Z
+deletion_time    n/a
+destroyed        false
+version          2
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/passwords
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:26:50.579038568Z
+deletion_time    n/a
+destroyed        false
+version          2
+
+===== Data =====
+Key       Value
+---       -----
+sshkey    09876
+
+ vault login $ROOT_TOKEN
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.ZSLtDt14LaaJtSfZlkloUEdX
+token_accessor       M8onuZldG32awXagS00naAJa
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/passwords
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:26:50.579038568Z
+deletion_time    n/a
+destroyed        false
+version          2
+
+===== Data =====
+Key       Value
+---       -----
+sshkey    09876
+
+Login back as the new user and create a new entry:
+
+vault login $NEW_TOKEN
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.xEtUJjtMJQ2IpummmFiXzBb9
+token_accessor       Zcp0XSHxt3fb7ZUZ1rvJTL4Q
+token_duration       767h37m11s
+token_renewable      true
+token_policies       ["default" "mypolicy"]
+identity_policies    []
+policies             ["default" "mypolicy"]
+seccon@ubuntu:~/chowkidar/working$ vault kv put mysecret/newpw newsshkey=123456
+Key              Value
+---              -----
+created_time     2020-08-15T17:28:03.74758151Z
+deletion_time    n/a
+destroyed        false
+version          1
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/newpw
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:28:03.74758151Z
+deletion_time    n/a
+destroyed        false
+version          1
+
+====== Data ======
+Key          Value
+---          -----
+newsshkey    123456
+
+Lets delete this entry
+
+vault kv delete mysecret/newpw
+Success! Data deleted (if it existed) at: mysecret/newpw
+seccon@ubuntu:~/chowkidar/working$ vault kv get mysecret/newpw
+====== Metadata ======
+Key              Value
+---              -----
+created_time     2020-08-15T17:28:03.74758151Z
+deletion_time    2020-08-15T17:28:46.569744487Z
+destroyed        false
+version          1
+
+So we can create, delete, read and update:
+vault token capabilities mysecret/data/
+create, delete, read, update
+
+What about undelete?
+
+vault kv undelete mysecret/newpw
+No versions provided, use the "-versions" flag to specify the version to undelete.
+seccon@ubuntu:~/chowkidar/working$ vault kv undelete -versions=1 mysecret/newpw
+Error writing data to mysecret/undelete/newpw: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/mysecret/undelete/newpw
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+vault token capabilities mysecret/data/locked
+read
+seccon@ubuntu:~/chowkidar/working$ vault delete mysecret/locked
+Error deleting mysecret/locked: Error making API request.
+
+URL: DELETE http://127.0.0.1:8200/v1/mysecret/locked
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+
+I can do all this via the REST API or the UI. Lets look at the UI
+
+
+http://127.0.0.1:8200/ui/vault/secrets/mysecret/show/locked
+
+http://127.0.0.1:8200/ui/vault/secrets/mysecret/show/passwords
+
+http://127.0.0.1:8200/ui/vault/secrets/mysecret/show/newpw
+http://127.0.0.1:8200/ui/vault/secrets/mysecret/show/creds
+
+
+
+vault kv list mysecret/
+Keys
+----
+creds
+data/
+locked
+newpw
+passwords
+
+
+Now lets look at plugins. We have used the kv plugin. And we used policies to control access. We are now going to write two plugins. Lets look at the storage plugin first.
+ The code is in ~/c-and-c/code/
+
+Lets look at ~/c-and-c/code/chowkidar/.
+ 
+Build using the go commands:
+go build -o ~/c-and-c/plugins/chakravyuh
+go build -o ~/c-and-c/plugins/chowkidar cmd/chowkidar/main.go
+
+ls -l ~/c-and-c/plugins/
+
+start vault now as:
+vault server -dev -dev-root-token-id=root -dev-plugin-dir=/home/seccon/c-and-c/plugins&
+
+Note a difference - we specified a plugin directory.
+
+You also see this:
+
+Unseal Key: Sthmy8OWDFkKIuo5TTU/KC/lnq1ksPB6G7EtYUI4Y80=
+Root Token: root
+
+The following dev plugins are registered in the catalog:
+    - chakravyuh
+    - chowkidar
+
+
+You can list the plugins and you will be able to see them:
+
+vault plugin list
+Plugins
+-------
+[..]
+chakravyuh
+chowkidar
+[..]
+
+Now we can load the plugin into a specific location. Lets use the chowkidar plugin to store secrets.
+
+vault secrets enable -path=chowkidar -plugin-name=chowkidar plugin
+2020-08-18T23:23:47.079+0530 [WARN]  secrets.chowkidar.chowkidar_39c201e8.chowkidar: error closing client during Kill: metadata=true err="rpc error: code = Canceled desc = grpc: the client connection is closing"
+2020-08-18T23:23:47.080+0530 [WARN]  secrets.chowkidar.chowkidar_39c201e8.chowkidar: plugin failed to exit gracefully: metadata=true
+2020-08-18T23:23:47.104+0530 [INFO]  core: successful mount: namespace= path=chowkidar/ type=chowkidar
+Success! Enabled the chowkidar secrets engine at: chowkidar/
+
+
+vault auth enable -path=chakravyuh -plugin-name=chakravyuh plugin
+2020-08-18T23:25:06.022+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh: error closing client during Kill: metadata=true err="rpc error: code = Canceled desc = grpc: the client connection is closing"
+2020-08-18T23:25:06.022+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh: plugin failed to exit gracefully: metadata=true
+2020-08-18T23:25:06.025+0530 [INFO]  core: enabled credential backend: path=chakravyuh/ type=chakravyuh
+Success! Enabled chakravyuh auth method at: chakravyuh/
+
+This plugin allows two users to login:
+user: app1, password: app1
+user: app2, password: app2
+
+Now we can use the chowkidar plugin to store secrets.
+
+vault write chowkidar/test message="Hello world"
+2020-08-18T23:26:12.387+0530 [INFO]  secrets.chowkidar.chowkidar_39c201e8.chowkidar.chowkidar: Path: : EXTRA_VALUE_AT_END=test timestamp=2020-08-18T23:26:12.387+0530
+2020-08-18T23:26:12.387+0530 [INFO]  secrets.chowkidar.chowkidar_39c201e8.chowkidar.chowkidar: buf: : EXTRA_VALUE_AT_END=eyJtZXNzYWdlIjoiSGVsbG8gd29ybGQifQ== timestamp=2020-08-18T23:26:12.387+0530
+Success! Data written to: chowkidar/test
+
+vault read chowkidar/test
+Key        Value
+---        -----
+message    Hello world
+
+We can also authenticate using chakravyuh
+
+ vault write auth/chakravyuh/login username="app1" password="app1"
+2020-08-18T23:27:39.063+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: Entered Login Function: timestamp=2020-08-18T23:27:39.062+0530
+2020-08-18T23:27:39.063+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: username: : app1=<unknown> timestamp=2020-08-18T23:27:39.062+0530
+2020-08-18T23:27:39.063+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: password: : app1=<unknown> timestamp=2020-08-18T23:27:39.062+0530
+Key                  Value
+---                  -----
+token                s.hLCRNcYEGGXSQliutYCItCtJ
+token_accessor       yBA6V4L1YXuEvFDlqAAmYkkQ
+token_duration       50m
+token_renewable      true
+token_policies       ["default"]
+identity_policies    []
+policies             ["default"]
+
+Note the policies are only default, not root+default. The duration is 50minutes for this token and then it has to be renewed. We can now login using this token.
+
+vault login s.hLCRNcYEGGXSQliutYCItCtJ
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.hLCRNcYEGGXSQliutYCItCtJ
+token_accessor       yBA6V4L1YXuEvFDlqAAmYkkQ
+token_duration       49m10s
+token_renewable      true
+token_policies       ["default"]
+identity_policies    []
+policies             ["default"]
+seccon@ubuntu:~/c-and-c/working$ 
+seccon@ubuntu:~/c-and-c/working$ vault token capabilities chowkidar/test
+deny
+
+So using this token we dont have capability to read the location. We can create policy to read this space specifically. So:
+
+ vault policy write test -<<EOF
+> path "chowkidar/data/*" {
+>      capabilities = ["create", "update", "delete", "read"]
+> }
+> EOF
+Error uploading policy: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/sys/policies/acl/test
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+
+Oh, right we are logged in as user "app1". SO lets login as root.
+
+vault login root
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                root
+token_accessor       gzBXAqRupEtlL18v17FYalQr
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+vault policy write test -<<EOF
+> path "chowkidar/data/*" {
+>      capabilities = ["create", "update", "delete", "read"]
+> }
+> EOF
+Success! Uploaded policy: test
+
+
+vault policy read test
+path "chowkidar/*" {
+     capabilities = ["create", "update", "delete", "read"]
+}
+
+Now lets assign policy to the user app1
+
+vault write auth/chakravyuh/role/app1 policies="test"
+2020-08-18T23:37:06.601+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: Entered Policy Write Function: timestamp=2020-08-18T23:37:06.600+0530
+2020-08-18T23:37:06.601+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: Policies : : test=<unknown> timestamp=2020-08-18T23:37:06.600+0530
+2020-08-18T23:37:06.601+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: ROLE ID : : app1=<unknown> timestamp=2020-08-18T23:37:06.600+0530
+2020-08-18T23:37:06.601+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: : timestamp=2020-08-18T23:37:06.600+0530
+Success! Data written to: auth/chakravyuh/role/app1
+
+Now lets login back as app1.
+
+vault write auth/chakravyuh/login username=app1 password=app1
+2020-08-18T23:37:49.815+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: Entered Login Function: timestamp=2020-08-18T23:37:49.814+0530
+2020-08-18T23:37:49.815+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: username: : app1=<unknown> timestamp=2020-08-18T23:37:49.814+0530
+2020-08-18T23:37:49.815+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh.chakravyuh: password: : app1=<unknown> timestamp=2020-08-18T23:37:49.814+0530
+Key                  Value
+---                  -----
+token                s.pid0aK99QwqF59gm3byGJ8c1
+token_accessor       LMSRw1ilgiGBpc9hD512Y5yv
+token_duration       50m
+token_renewable      true
+token_policies       ["default" "test"]
+identity_policies    []
+policies             ["default" "test"]
+
+Note the policy has changed. We can confirm that as well:
+
+vault token capabilities chowkidar/test
+create, delete, read, update
+
+vault read chowkidar/test
+Key        Value
+---        -----
+message    Hello world
+seccon@ubuntu:~/c-and-c/working$ vault write chowkidar/newtest hello=world
+2020-08-18T23:41:29.242+0530 [INFO]  secrets.chowkidar.chowkidar_39c201e8.chowkidar.chowkidar: Path: : EXTRA_VALUE_AT_END=newtest timestamp=2020-08-18T23:41:29.241+0530
+2020-08-18T23:41:29.242+0530 [INFO]  secrets.chowkidar.chowkidar_39c201e8.chowkidar.chowkidar: buf: : EXTRA_VALUE_AT_END=eyJoZWxsbyI6IndvcmxkIn0= timestamp=2020-08-18T23:41:29.241+0530
+Success! Data written to: chowkidar/newtest
+seccon@ubuntu:~/c-and-c/working$ vault read chowkidar/newtest
+Key      Value
+---      -----
+hello    world
+
+Now open up the code. Lets look at the chowkidar plugin first. Open code in ~/c-and-c/code/chowkidar/
+
+Go to function
+
+func (b *backend) paths() []*framework.Path
+
+Here you can see the different operations we support for the paths that come in. The operations are ReadOperation, UpdateOperation, CreateOperation and DeleteOperation. This matches the permissions we specify. The callbacks are specified. Lets look at the UpdateOperation callback function handleWrite().
+
+The code is straightforward enough to parse. Make sure that the Token is present, then make sure data is present. We get the path. Now notice that we are writing the data to a file, one file per path specified! That is very interesting. So we should be able to open that file and get the data! In our working directory, we do ls and we can see two files - test.txt and newtest.txt. Lets look at both:
+
+ cat test.txt
+{"message":"Hello world"}
+
+ cat newtest.txt 
+{"hello":"world"}
+
+And that is it! The kv plugin we used stored all data in memory. You can write a plugin that writes to some fancy location you want, or you can push it to a router/switch or anything you want to do with it! You can encrypt the data and send it some where else. Its really upto your imagination.
+
+The rest of the operations must be quite easy to understand now. Lets look at handleRead(). It reads this file and gives the raw data back.
+
+handleDelete() removes the file.
+
+Note that here we dont handle the policy at all. Where is the policy check to see if the user can access this location or not? So this is the great part - once a policy is given to vault, it will handle running the policy for the specific path. We dont have to do anything!
+
+Now lets see the chakravyuh plugin. Open ~/c-and-c/code/chakravyuh/main.go. This file is a bit longer, but dont panic.
+
+In this file, look at the function Backend(). You can see certain paths, the ones that we used:
+- login: you specify username and password
+- role: you specify the policy here
+
+The callbacks are there for UpdateOperation and ReadOperation. Lets explore those functions.
+
+Look at pathAuthPolicy(). This is where the policy name is received and is stored into setRoleEntry().
+
+Look at pathAuthLogin(). This is where you can login. This takes the username and password and compares them. Here we have hardcoded password for "app1" as "app1". We check if the password matches cred[username] and if it does, then we provide the policy that was configured before back to the backend.
+
+This is how we set everything up.
+
+Lets do one thing. Lets disable this chakravyuh plugin.
+
+First login as root:
+
+vault login root
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                root
+token_accessor       gzBXAqRupEtlL18v17FYalQr
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+
+vault auth disable chakravyuh
+2020-08-19T21:17:02.901+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh: error closing client during Kill: err="rpc error: code = Canceled desc = grpc: the client connection is closing"
+2020-08-19T21:17:02.902+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_067406f6.chakravyuh: plugin failed to exit gracefully
+2020-08-19T21:17:02.944+0530 [INFO]  core: disabled credential backend: path=auth/chakravyuh/
+Success! Disabled the auth method (if it existed) at: chakravyuh/
+
+You can see now that vault doesnt know about path auth/chakravyuh anymore.
+
+vault write auth/chakravyuh/login username=app1 password=app1
+Error writing data to auth/chakravyuh/login: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/auth/chakravyuh/login
+Code: 404. Errors:
+
+* no handler for route 'auth/chakravyuh/login'
+
+Lets change password for username "app1" to "mynewpassword".
+
+Instead of this line:
+	cred["app1"]="app1"
+put in this line:
+	cred["app1"]="mynewpassword"
+
+Now build and update this plugin.
+
+cd ../code/chakravyuh/
+
+go build -o ~/c-and-c/plugins/chakravyuh
+ls -al ~/c-and-c/plugins/chakravyuh 
+-rwxrwxr-x 1 seccon seccon 16905595 Aug 19 21:19 /home/seccon/c-and-c/plugins/chakravyuh
+
+Now load the plugin again. The easiest way is to restart the vault server.
+
+ vault server -dev -dev-root-token-id=root -dev-plugin-dir=/home/seccon/c-and-c/plugins&
+
+WARNING! dev mode is enabled! In this mode, Vault runs entirely in-memory
+and starts unsealed with a single unseal key. The root token is already
+authenticated to the CLI, so you can immediately begin using Vault.
+
+You may need to set the following environment variable:
+
+    $ export VAULT_ADDR='http://127.0.0.1:8200'
+
+The unseal key and root token are displayed below in case you want to
+seal/unseal the Vault or re-authenticate.
+
+Unseal Key: TwjpMngIPonGYmcqaNAKdF4HbyXi8B3b7KsdJlV4J2c=
+Root Token: root
+
+The following dev plugins are registered in the catalog:
+    - chakravyuh
+    - chowkidar
+
+Development mode should NOT be used in production installations!
+
+
+vault auth enable -path=chakravyuh -plugin-name=chakravyuh plugin
+2020-08-19T21:21:47.675+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh: error closing client during Kill: metadata=true err="rpc error: code = Canceled desc = grpc: the client connection is closing"
+2020-08-19T21:21:47.675+0530 [WARN]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh: plugin failed to exit gracefully: metadata=true
+2020-08-19T21:21:47.676+0530 [INFO]  core: enabled credential backend: path=chakravyuh/ type=chakravyuh
+Success! Enabled chakravyuh auth method at: chakravyuh/
+
+Now try to login with the old password:
+
+vault write auth/chakravyuh/login username=app1 password=app1
+2020-08-19T21:23:46.262+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: Entered Login Function: timestamp=2020-08-19T21:23:46.261+0530
+2020-08-19T21:23:46.262+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: username: : app1=<unknown> timestamp=2020-08-19T21:23:46.261+0530
+2020-08-19T21:23:46.262+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: password: : app1=<unknown> timestamp=2020-08-19T21:23:46.261+0530
+Error writing data to auth/chakravyuh/login: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/auth/chakravyuh/login
+Code: 500. Errors:
+
+* Verification Failed
+
+
+Now login with the new password:
+
+vault write auth/chakravyuh/login username=app1 password=mynewpassword
+2020-08-19T21:24:25.934+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: Entered Login Function: timestamp=2020-08-19T21:24:25.934+0530
+2020-08-19T21:24:25.934+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: username: : app1=<unknown> timestamp=2020-08-19T21:24:25.934+0530
+2020-08-19T21:24:25.934+0530 [INFO]  auth.chakravyuh.auth_chakravyuh_032bd59a.chakravyuh.chakravyuh: password: : mynewpassword=<unknown> timestamp=2020-08-19T21:24:25.934+0530
+Key                  Value
+---                  -----
+token                s.UlMFVnOVt9IICaczx22tppDd
+token_accessor       1SxZqKCzQc5UZxzE9spiCATH
+token_duration       50m
+token_renewable      true
+token_policies       ["default"]
+identity_policies    []
+policies             ["default"]
+
+
+There you are!

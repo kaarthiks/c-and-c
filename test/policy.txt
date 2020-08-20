@@ -1,0 +1,14 @@
+1.
+
+path "secret/data/*" {
+     capabilities = ["create", "update", "delete", "read"]
+}
+
+path "secret/data/locked" {
+     capabilities = ["read"]
+}
+
+2. 
+path "chowkidar/data/*" {
+     capabilities = ["create", "update", "delete", "read"]
+}
